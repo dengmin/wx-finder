@@ -1,20 +1,34 @@
+import time
 import requests
 import uuid
 import os
 import math
+import random
 from urllib.parse import urlencode
 
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 CHUNK_SIZE = 1024 * 1024 * 8
+
+UPLOAD_PARAMS = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/helper/helper_upload_params?_rid=%s'
 APPLY_UPLOAD_URL = 'https://finderassistancea.video.qq.com/applyuploaddfs'
 UPLOAD_FILE_URL = 'https://finderassistancec.video.qq.com/uploadpartdfs?PartNumber=%d&UploadID=%s&QuickUpload=2'
 UPLOAD_COMPLETE_URL = 'https://finderassistancea.video.qq.com/completepartuploaddfs?UploadID=%s'
 
+COOKIE = 'cookie'
+
+
+def generate_rid():
+    e = int(time.time())
+    t = hex(e)[2:]
+    e = ''.join(random.choice('01234567') for _ in range(8))
+    return t + '-' + e
+
 
 class WxFinder:
-    def __init__(self, auth_key, weixin_num):
-        self.auth_key = auth_key
-        self.weixin_num = weixin_num
+    def __init__(self, finder_id):
+        self.finder_id = finder_id
+        self.auth_key = None
+        self.weixin_num = None
         self.taskid = None
         self.file_key = None
         self.upload_id = None
@@ -120,13 +134,39 @@ class WxFinder:
         print('upload_complete response: ', response.text)
         return response.json()['DownloadURL']
 
+    def get_upload_params(self):
+        url = UPLOAD_PARAMS % generate_rid()
+
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': '0000000000',
+            'Referer': 'https://channels.weixin.qq.com/platform/post/list',
+            'User-Agent': USER_AGENT,
+            'Cookie': COOKIE
+        }
+
+        params = {
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        response = requests.post(url, headers=headers, json=params)
+        print(response.text)
+        data = response.json()['data']
+        self.auth_key = data['authKey']
+        self.weixin_num = data['uin']
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     file_path = '/Users/dengmin/Desktop/28804_1727070825.mp4'
-    auth_key = '111'
-    weixin_num = '222'
-    finder = WxFinder(auth_key, weixin_num)
+    finder_id = 'v2_0600002'
+    finder = WxFinder(finder_id)
+    finder.get_upload_params()
     finder.upload(file_path)
     pass
 
