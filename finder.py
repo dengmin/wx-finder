@@ -15,6 +15,7 @@ UPLOAD_FILE_URL = 'https://finderassistancec.video.qq.com/uploadpartdfs?PartNumb
 UPLOAD_COMPLETE_URL = 'https://finderassistancea.video.qq.com/completepartuploaddfs?UploadID=%s'
 TRACE_KEY_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/get-finder-post-trace-key?_rid=%s'
 SEARCH_LOCATION_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/helper/helper_search_location?_rid=%s'
+POST_CREATE_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/post_create'
 
 COOKIE = 'wxuin=000000'
 
@@ -213,6 +214,100 @@ class WxFinder:
         }
         response = requests.post(url, headers=headers, json=params)
         return response.json()['data']
+
+    def post_create(self, video_url):
+        """发布视频"""
+        url = SEARCH_LOCATION_URL % generate_rid()
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/post/create',
+            'User-Agent': USER_AGENT,
+            'Cookie': COOKIE
+        }
+
+        params = {
+            "objectType": 0,
+            "longitude": 0,
+            "latitude": 0,
+            "feedLongitude": 0,
+            "feedLatitude": 0,
+            "originalFlag": 0,
+            "topics": [
+                "早操"
+            ],
+            "isFullPost": 1,
+            "handleFlag": 2,
+            "videoClipTaskId": "14486175796297140387",
+            "traceInfo": {
+                "traceKey": "FPT_1726886706_34012748",
+                "uploadCdnStart": 1726886705,
+                "uploadCdnEnd": 1726886724
+            },
+            "objectDesc": {
+                "mpTitle": "",
+                "description": "test#早操",
+                "extReading": {},
+                "mediaType": 4,
+                "location": {
+                    "latitude": 30.25727081298828,
+                    "longitude": 120.20523071289062,
+                    "city": "杭州市",
+                    "poiClassifyId": ""
+                },
+                "topic": {
+                    "finderTopicInfo": "<finder><version>1</version><valuecount>2</valuecount><style><at></at></style><value0><![CDATA[test]]></value0><value1><topic><![CDATA[#早操#]]></topic></value1></finder>"
+                },
+                "event": {},
+                "mentionedUser": [],
+                "media": [
+                    {
+                        "url": video_url,
+                        "fileSize": 2763522,
+                        "thumbUrl": "https://finder.video.qq.com/251/20304/stodownload?bizid=1023&dotrans=0&encfilekey=rjD5jyTuFrIpZ2ibE8T7YmwgiahniaXswqzKb4w3NnVU953icRb7exZw86aiaLuCVNbSiafVob1LWbThtpVficZukFXGuU3q3FxHmYwxZ1wdtKJyx3owauWlqqA2A&hy=SH&idx=1&m=&scene=2&token=cztXnd9GyrE0mHAvACDCicLTD89dkwBjgG4dcq517ib22MhfUDCSRcSrLIWjG7Xl7A9S3hwriaFICBXl4r2icSzoicA&uzid=2",
+                        "fullThumbUrl": "https://finder.video.qq.com/251/20304/stodownload?bizid=1023&dotrans=0&encfilekey=rjD5jyTuFrIpZ2ibE8T7YmwgiahniaXswqzKb4w3NnVU953icRb7exZw86aiaLuCVNbSiafVob1LWbThtpVficZukFXGuU3q3FxHmYwxZ1wdtKJyx3owauWlqqA2A&hy=SH&idx=1&m=&scene=2&token=cztXnd9GyrE0mHAvACDCicLTD89dkwBjgG4dcq517ib22MhfUDCSRcSrLIWjG7Xl7A9S3hwriaFICBXl4r2icSzoicA&uzid=2",
+                        "mediaType": 4,
+                        "videoPlayLen": 9,
+                        "width": 1280,
+                        "height": 720,
+                        "md5sum": "383f1b32-e2a5-4cae-898c-4b23cd43cc68",
+                        "cardShowStyle": 2,
+                        "coverUrl": "https://finder.video.qq.com/251/20304/stodownload?bizid=1023&dotrans=0&encfilekey=rjD5jyTuFrIpZ2ibE8T7YmwgiahniaXswqzKb4w3NnVU953icRb7exZw86aiaLuCVNbSiafVob1LWbThtpVficZukFXGuU3q3FxHmYwxZ1wdtKJyx3owauWlqqA2A&hy=SH&idx=1&m=&scene=2&token=cztXnd9GyrE0mHAvACDCicLTD89dkwBjgG4dcq517ib22MhfUDCSRcSrLIWjG7Xl7A9S3hwriaFICBXl4r2icSzoicA&uzid=2",
+                        "fullCoverUrl": "https://finder.video.qq.com/251/20304/stodownload?bizid=1023&dotrans=0&encfilekey=rjD5jyTuFrIpZ2ibE8T7YmwgiahniaXswqzKb4w3NnVU953icRb7exZw86aiaLuCVNbSiafVob1LWbThtpVficZukFXGuU3q3FxHmYwxZ1wdtKJyx3owauWlqqA2A&hy=SH&idx=1&m=&scene=2&token=cztXnd9GyrE0mHAvACDCicLTD89dkwBjgG4dcq517ib22MhfUDCSRcSrLIWjG7Xl7A9S3hwriaFICBXl4r2icSzoicA&uzid=2",
+                        "urlCdnTaskId": "14486175796297140387"
+                    }
+                ],
+                "member": {}
+            },
+            "report": {
+                "clipKey": "14486175796297140387",
+                "draftId": "14486175796297140387",
+                "timestamp": "1726886730095",
+                "_log_finder_uin": "",
+                "_log_finder_id": self.finder_id,
+                "rawKeyBuff": None,
+                "pluginSessionId": None,
+                "scene": 7,
+                "reqScene": 7,
+                "height": 720,
+                "width": 1280,
+                "duration": 9.7,
+                "fileSize": 2763522,
+                "uploadCost": 5826
+            },
+            "postFlag": 0,
+            "mode": 1,
+            "clientid": "d4de43fb-756d-4698-bd5e-40f4c88bfaa1",
+            "timestamp": "1726887486269",
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+
+        response = requests.post(url, headers=headers, json=params)
 
 
 
