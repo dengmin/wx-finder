@@ -13,8 +13,10 @@ UPLOAD_PARAMS = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/he
 APPLY_UPLOAD_URL = 'https://finderassistancea.video.qq.com/applyuploaddfs'
 UPLOAD_FILE_URL = 'https://finderassistancec.video.qq.com/uploadpartdfs?PartNumber=%d&UploadID=%s&QuickUpload=2'
 UPLOAD_COMPLETE_URL = 'https://finderassistancea.video.qq.com/completepartuploaddfs?UploadID=%s'
+TRACE_KEY_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/get-finder-post-trace-key?_rid=%s'
+SEARCH_LOCATION_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/helper/helper_search_location?_rid=%s'
 
-COOKIE = 'cookie'
+COOKIE = 'wxuin=000000'
 
 
 def generate_rid():
@@ -33,6 +35,8 @@ class WxFinder:
         self.file_key = None
         self.upload_id = None
         self.file_size = 0
+
+        self.__get_upload_params()
 
     def upload(self, file_path):
         self.taskid = uuid.uuid4()
@@ -134,7 +138,7 @@ class WxFinder:
         print('upload_complete response: ', response.text)
         return response.json()['DownloadURL']
 
-    def get_upload_params(self):
+    def __get_upload_params(self):
         url = UPLOAD_PARAMS % generate_rid()
 
         headers = {
@@ -160,13 +164,66 @@ class WxFinder:
         self.auth_key = data['authKey']
         self.weixin_num = data['uin']
 
+    def get_trace_key(self):
+        url = TRACE_KEY_URL % generate_rid()
+        params = {
+            "objectId": None,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/post/create',
+            'User-Agent': USER_AGENT,
+            'Cookie': COOKIE
+        }
+        response = requests.post(url, headers=headers, json=params)
+        print('get trace key response: ', response.text)
+        return response.json()['data']['traceKey']
+
+    def search_location(self):
+        """获取经纬度和地理位置信息"""
+        url = SEARCH_LOCATION_URL % generate_rid()
+        params = {
+            "query": "",
+            "cookies": "",
+            "longitude": 0,
+            "latitude": 0,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/post/create',
+            'User-Agent': USER_AGENT,
+            'Cookie': COOKIE
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     file_path = '/Users/dengmin/Desktop/28804_1727070825.mp4'
-    finder_id = 'v2_0600002'
+    finder_id = 'v2_060000231003b20faec8c4e18d1dc5dcce0cea34b0777a2ed442219fded549577d31f6cbbb64@finder'
     finder = WxFinder(finder_id)
-    finder.get_upload_params()
     finder.upload(file_path)
+    #finder.get_trace_key()
+    #location = finder.search_location()
+    #print(location)
     pass
 
