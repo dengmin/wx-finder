@@ -17,8 +17,6 @@ TRACE_KEY_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/po
 SEARCH_LOCATION_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/helper/helper_search_location?_rid=%s'
 POST_CREATE_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/post_create'
 
-COOKIE = 'wxuin=000000'
-
 
 def generate_rid():
     e = int(time.time())
@@ -28,7 +26,8 @@ def generate_rid():
 
 
 class WxFinder:
-    def __init__(self, finder_id):
+    def __init__(self, cookie, finder_id):
+        self.cookie = cookie
         self.finder_id = finder_id
         self.auth_key = None
         self.weixin_num = None
@@ -147,7 +146,7 @@ class WxFinder:
             'X-WECHAT-UIN': '0000000000',
             'Referer': 'https://channels.weixin.qq.com/platform/post/list',
             'User-Agent': USER_AGENT,
-            'Cookie': COOKIE
+            'Cookie': self.cookie
         }
 
         params = {
@@ -183,7 +182,7 @@ class WxFinder:
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/create',
             'User-Agent': USER_AGENT,
-            'Cookie': COOKIE
+            'Cookie': self.cookie
         }
         response = requests.post(url, headers=headers, json=params)
         print('get trace key response: ', response.text)
@@ -210,7 +209,7 @@ class WxFinder:
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/create',
             'User-Agent': USER_AGENT,
-            'Cookie': COOKIE
+            'Cookie': self.cookie
         }
         response = requests.post(url, headers=headers, json=params)
         return response.json()['data']
@@ -223,7 +222,7 @@ class WxFinder:
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/create',
             'User-Agent': USER_AGENT,
-            'Cookie': COOKIE
+            'Cookie': self.cookie
         }
 
         params = {
@@ -311,11 +310,11 @@ class WxFinder:
 
 
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     file_path = '/Users/dengmin/Desktop/28804_1727070825.mp4'
     finder_id = 'v2_060000231003b20faec8c4e18d1dc5dcce0cea34b0777a2ed442219fded549577d31f6cbbb64@finder'
-    finder = WxFinder(finder_id)
+    cookie = 'cookie....'
+    finder = WxFinder(cookie, finder_id)
     finder.upload(file_path)
     #finder.get_trace_key()
     #location = finder.search_location()
