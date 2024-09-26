@@ -30,7 +30,6 @@ LIKE_COMMENT_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin
 DELETE_COMMENT_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/comment/del_comment?_rid=%s'
 
 
-
 class WxFinder:
     def __init__(self):
         self.finder_id = None
@@ -43,6 +42,13 @@ class WxFinder:
         self.file_size = 0
         self.upload_params = None
 
+        self.headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': '0000000000',
+            'Referer': 'https://channels.weixin.qq.com/platform',
+            'User-Agent': USER_AGENT
+        }
+
     def get_qrcode(self):
         url = QRCODE_URL % generate_rid()
         params = {
@@ -54,13 +60,10 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
-            'X-WECHAT-UIN': '0000000000',
+        self.headers.update({
             'Referer': 'https://channels.weixin.qq.com/platform/login-for-iframe?dark_mode=true&host_type=1',
-            'User-Agent': USER_AGENT
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(url, headers=self.headers, json=params)
         token = response.json()['data']['token']
         login_url = f"https://channels.weixin.qq.com/mobile/confirm_login.html?token={token}"
         create_qc_code(login_url)
@@ -70,6 +73,11 @@ class WxFinder:
         self.cookie = convert_cookie(cookies)
         auth_data = self.get_auth_data()
         self.finder_id = auth_data['finderUser']['finderUsername']
+        self.__get_upload_params()
+
+    def set_cookie(self, find_id, cookie):
+        self.cookie = cookie
+        self.finder_id = find_id
         self.__get_upload_params()
 
     def auth_login_status(self, token):
@@ -84,15 +92,13 @@ class WxFinder:
             "reqScene": 7,
             "_rid": generate_rid()
         }
-        headers = {
-            'Content-Type': 'application/json',
-            'X-WECHAT-UIN': '0000000000',
+        self.headers.update({
             'Referer': 'https://channels.weixin.qq.com/platform/login-for-iframe?dark_mode=true&host_type=1',
-            'User-Agent': USER_AGENT
-        }
+        })
+
         url = AUTH_LOGIN_STATUE + '?' + urlencode(params)
         while True:
-            response = requests.post(url, headers=headers, json=params)
+            response = requests.post(url, headers=self.headers, json=params)
             ret = response.json()
             print(ret)
             if ret['errCode'] != 0:
@@ -114,7 +120,16 @@ class WxFinder:
                 print('login error')
             time.sleep(1)
 
-    def upload(self, file_path):
+    def upload_video(self, file_path):
+        return self.__upload(file_path, 20302)
+
+    def upload_picture(self, file_path):
+        return self.__upload(file_path, 20304)
+
+    def upload_music(self, file_path):
+        return self.__upload(file_path, 20305)
+
+    def __upload(self, file_path,file_type):
         self.taskid = uuid.uuid4()
         self.file_size = os.path.getsize(file_path)
         self.file_key = os.path.basename(file_path)
@@ -123,7 +138,7 @@ class WxFinder:
 
         file_size_array = [x['end'] for x in chunks]
 
-        self.upload_id = self.apply_upload_fs(file_size_array)
+        self.upload_id = self.apply_upload_fs(file_type, file_size_array)
 
         part_num = 0
         part_info = []
@@ -132,11 +147,11 @@ class WxFinder:
             with open(file_path, 'rb') as f:
                 f.seek(item['start'])
                 file_chunk_data = f.read(item['end'] - item['start'])
-            upload_resp = self.upload_file(part, file_chunk_data)
+            upload_resp = self.upload_file(file_type, part, file_chunk_data)
             part_info.append({'PartNumber': part, 'ETag': upload_resp['ETag']})
             part_num += 1
 
-        return self.upload_complete(part_info)
+        return self.upload_complete(file_type, part_info)
 
     def split_file(self):
         """文件按照8M分片"""
@@ -152,10 +167,10 @@ class WxFinder:
         print('文件分片结果', chunks)
         return chunks
 
-    def __gen_x_args(self):
+    def __gen_x_args(self, file_type):
         args = {
             'apptype': 251,
-            'filetype': 20302,
+            'filetype': file_type,
             'weixinnum': self.weixin_num,
             'filekey': self.file_key,
             'filesize': self.file_size,
@@ -164,12 +179,12 @@ class WxFinder:
         }
         return urlencode(args)
 
-    def apply_upload_fs(self, file_size_array):
+    def apply_upload_fs(self, file_type, file_size_array):
         payload = {"BlockSum": len(file_size_array), "BlockPartLength": file_size_array}
         headers = {
             'Authorization': self.auth_key,
             'Content-MD5': 'null',
-            'X-Arguments': self.__gen_x_args(),
+            'X-Arguments': self.__gen_x_args(file_type),
             'Content-Type': 'application/json',
             'User-Agent': USER_AGENT
 
@@ -179,13 +194,13 @@ class WxFinder:
         print('apply_upload_fs request: ', response.json())
         return response.json()['UploadID']
 
-    def upload_file(self, part_num, file_chunk):
+    def upload_file(self, file_type, part_num, file_chunk):
         url = UPLOAD_FILE_URL % (part_num, self.upload_id)
 
         headers = {
             'Authorization': self.auth_key,
             'Content-MD5': 'null',
-            'X-Arguments': self.__gen_x_args(),
+            'X-Arguments': self.__gen_x_args(file_type),
             'Content-Type': 'application/octet-stream',
             'User-Agent': USER_AGENT
         }
@@ -195,12 +210,12 @@ class WxFinder:
         print('upload response: ', resp.text)
         return resp.json()
 
-    def upload_complete(self, part_info):
+    def upload_complete(self, file_type, part_info):
         url = UPLOAD_COMPLETE_URL % self.upload_id
         headers = {
             'Authorization': self.auth_key,
             'Content-MD5': 'null',
-            'X-Arguments': self.__gen_x_args(),
+            'X-Arguments': self.__gen_x_args(file_type),
             'Content-Type': 'application/json',
             'User-Agent': USER_AGENT
         }
@@ -228,8 +243,6 @@ class WxFinder:
         }
         :return:
         """
-        url = UPLOAD_PARAMS % generate_rid()
-
         headers = {
             'Content-Type': 'application/json',
             'X-WECHAT-UIN': '0000000000',
@@ -247,7 +260,7 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        response = requests.post(url, headers=headers, json=params)
+        response = requests.post(UPLOAD_PARAMS % generate_rid(), headers=headers, json=params)
         print(response.text)
         data = response.json()['data']
         self.auth_key = data['authKey']
@@ -259,7 +272,6 @@ class WxFinder:
         获取当前登录的用户信息
         :return:
         """
-        url = AUTH_DATA_URL % generate_rid()
         params = {
             "timestamp": int(time.time() * 1000),
             "_log_finder_uin": "",
@@ -269,19 +281,16 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(AUTH_DATA_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def get_post_list(self, page=1):
         """视频列表"""
-        url = POST_LIST_URL % generate_rid()
         params = {
             "pageSize": 20,
             "currentPage": page,
@@ -293,19 +302,16 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/list',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(POST_LIST_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def get_draft_list(self, page=1):
         """草稿列表"""
-        url = POST_DRAFT_URL % generate_rid()
         params = {
             "pageSize": 20,
             "currentPage": page,
@@ -317,19 +323,16 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/list?tab=draft',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(POST_DRAFT_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def get_collection_list(self, page=1):
         """合集列表"""
-        url = COLLECTION_LIST_URL % generate_rid()
         params = {
             "pageNum": page,
             "pageSize": 20,
@@ -343,19 +346,16 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/list?tab=collection',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(COLLECTION_LIST_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def delete_post(self, export_id):
         """删除视频"""
-        url = POST_DELETE_URL % generate_rid()
         params = {
             "objectId": export_id,
             "timestamp": int(time.time() * 1000),
@@ -366,14 +366,12 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/list',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(POST_DELETE_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def get_comment_list(self, export_id, comment_selection=False):
@@ -381,7 +379,6 @@ class WxFinder:
         视频的评论列表
         comment_selection=True 精选评论
         """
-        url = COMMENT_LIST_URL % generate_rid()
         params = {
             "lastBuff": "",
             "exportId": export_id,
@@ -395,14 +392,12 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/comment',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(COMMENT_LIST_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def update_comment_auth(self, export_id, comment_flag=0, comment_selection_flag=0):
@@ -411,14 +406,11 @@ class WxFinder:
         comment_flag=0 开启评论  comment_flag=1 关闭评论
         comment_selection_flag=0 将仅公开已精选的评论 comment_selection_flag=1 关闭
         """
-        url = UPDATE_COMMENT_AUTH % generate_rid()
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/comment',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
+        })
         params = {
             "objectId": export_id,
             "commentFlag": comment_flag,
@@ -431,12 +423,11 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        response = requests.post(url, headers=headers, json=params)
+        response = requests.post(UPDATE_COMMENT_AUTH % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def create_comment(self, export_id, content, reply_comment_id=None):
         """添加评论"""
-        url = CREATE_COMMENT % generate_rid()
         params = {
             "replyCommentId": "" if reply_comment_id is None else reply_comment_id,
             "content": content,
@@ -452,14 +443,12 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/comment',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(CREATE_COMMENT % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def like_comment(self, export_id, comment_id, scene=1):
@@ -467,7 +456,6 @@ class WxFinder:
         评论点赞
         scene=1 点赞 scene=2取消点赞
         """
-        url = LIKE_COMMENT_URL % generate_rid()
         params = {
             "commentId": comment_id,
             "scene": scene,
@@ -479,19 +467,16 @@ class WxFinder:
             "pluginSessionId": None,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/comment',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(LIKE_COMMENT_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def delete_comment(self, export_id, comment_id):
         """删除评论"""
-        url = DELETE_COMMENT_URL % generate_rid()
         params = {
             "exportId": export_id,
             "commentId": comment_id,
@@ -500,18 +485,15 @@ class WxFinder:
             "_log_finder_id": self.finder_id,
             "rawKeyBuff": None, "pluginSessionId": None, "scene": 7, "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/comment',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(DELETE_COMMENT_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def get_trace_key(self):
-        url = TRACE_KEY_URL % generate_rid()
         params = {
             "objectId": None,
             "timestamp": int(time.time() * 1000),
@@ -522,21 +504,17 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/create',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(TRACE_KEY_URL % generate_rid(), headers=self.headers, json=params)
         print('get trace key response: ', response.text)
         return response.json()['data']['traceKey']
 
     def search_location(self):
         """获取经纬度和地理位置信息"""
-        url = SEARCH_LOCATION_URL % generate_rid()
         params = {
             "query": "",
             "cookies": "",
@@ -550,26 +528,22 @@ class WxFinder:
             "scene": 7,
             "reqScene": 7
         }
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/create',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
-        response = requests.post(url, headers=headers, json=params)
+        })
+        response = requests.post(SEARCH_LOCATION_URL % generate_rid(), headers=self.headers, json=params)
         return response.json()['data']
 
     def post_create(self, video_url):
         """发布视频"""
         url = SEARCH_LOCATION_URL % generate_rid()
-        headers = {
-            'Content-Type': 'application/json',
+        self.headers.update({
             'X-WECHAT-UIN': str(self.weixin_num),
             'Referer': 'https://channels.weixin.qq.com/platform/post/create',
-            'User-Agent': USER_AGENT,
             'Cookie': self.cookie
-        }
+        })
 
         params = {
             "objectType": 0,
@@ -652,7 +626,7 @@ class WxFinder:
             "reqScene": 7
         }
 
-        response = requests.post(url, headers=headers, json=params)
+        response = requests.post(url, headers=self.headers, json=params)
 
 
 if __name__ == '__main__':
@@ -665,4 +639,8 @@ if __name__ == '__main__':
     # print(finder.get_draft_list())
     # print(finder.get_auth_data())
     finder.get_qrcode()
+    # location = finder.search_location()
+    # print(location)
+    # print(finder.get_post_list())
+    # print(finder.upload_video(file_path))
     pass
