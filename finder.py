@@ -3,12 +3,14 @@ import requests
 import uuid
 import os
 import math
-import random
+from helper import generate_rid, create_qc_code, convert_cookie
 from urllib.parse import urlencode
 
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 CHUNK_SIZE = 1024 * 1024 * 8
 
+QRCODE_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/auth/auth_login_code?_rid=%s'
+AUTH_LOGIN_STATUE = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/auth/auth_login_status'
 UPLOAD_PARAMS = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/helper/helper_upload_params?_rid=%s'
 APPLY_UPLOAD_URL = 'https://finderassistancea.video.qq.com/applyuploaddfs'
 UPLOAD_FILE_URL = 'https://finderassistancec.video.qq.com/uploadpartdfs?PartNumber=%d&UploadID=%s&QuickUpload=2'
@@ -28,17 +30,11 @@ LIKE_COMMENT_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin
 DELETE_COMMENT_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/comment/del_comment?_rid=%s'
 
 
-def generate_rid():
-    e = int(time.time())
-    t = hex(e)[2:]
-    e = ''.join(random.choice('01234567') for _ in range(8))
-    return t + '-' + e
-
 
 class WxFinder:
-    def __init__(self, cookie, finder_id):
-        self.cookie = cookie
-        self.finder_id = finder_id
+    def __init__(self):
+        self.finder_id = None
+        self.cookie = None
         self.auth_key = None
         self.weixin_num = None
         self.taskid = None
@@ -47,7 +43,76 @@ class WxFinder:
         self.file_size = 0
         self.upload_params = None
 
+    def get_qrcode(self):
+        url = QRCODE_URL % generate_rid()
+        params = {
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": "",
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': '0000000000',
+            'Referer': 'https://channels.weixin.qq.com/platform/login-for-iframe?dark_mode=true&host_type=1',
+            'User-Agent': USER_AGENT
+        }
+        response = requests.post(url, headers=headers, json=params)
+        token = response.json()['data']['token']
+        login_url = f"https://channels.weixin.qq.com/mobile/confirm_login.html?token={token}"
+        create_qc_code(login_url)
+        self.auth_login_status(token)
+
+    def __login(self, cookies):
+        self.cookie = convert_cookie(cookies)
+        auth_data = self.get_auth_data()
+        self.finder_id = auth_data['finderUser']['finderUsername']
         self.__get_upload_params()
+
+    def auth_login_status(self, token):
+        params = {
+            "token": token,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": "",
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7,
+            "_rid": generate_rid()
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': '0000000000',
+            'Referer': 'https://channels.weixin.qq.com/platform/login-for-iframe?dark_mode=true&host_type=1',
+            'User-Agent': USER_AGENT
+        }
+        url = AUTH_LOGIN_STATUE + '?' + urlencode(params)
+        while True:
+            response = requests.post(url, headers=headers, json=params)
+            ret = response.json()
+            print(ret)
+            if ret['errCode'] != 0:
+                return
+
+            data = ret['data']
+            if data['status'] == 0 and data['acctStatus'] == 0:
+                print('未扫码')
+            elif data['status'] == 5 and data['acctStatus'] == 1:
+                print('已扫码 未确认')
+            elif data['status'] == 1 and data['acctStatus'] == 1:
+                print('登录成功')
+                cookies = response.cookies.items()
+                self.__login(cookies)
+                return
+            elif data['status'] == 4:
+                print("二维码已经过期")
+            else:
+                print('login error')
+            time.sleep(1)
 
     def upload(self, file_path):
         self.taskid = uuid.uuid4()
@@ -590,17 +655,14 @@ class WxFinder:
         response = requests.post(url, headers=headers, json=params)
 
 
-
 if __name__ == '__main__':
     file_path = '/Users/dengmin/Desktop/28804_1727070825.mp4'
-    finder_id = 'v2_060000231003b20faec8c4e18d1dc5dcce0cea34b0777a2ed442219fded549577d31f6cbbb64@finder'
-    cookie = 'cookies....'
-    finder = WxFinder(cookie, finder_id)
-    #finder.upload(file_path)
-    #finder.get_trace_key()
-    #location = finder.search_location()
-    #print(location)
+    finder = WxFinder()
+    # finder.upload(file_path)
+    # finder.get_trace_key()
+    # location = finder.search_location()
+    # print(location)
     # print(finder.get_draft_list())
-    print(finder.get_auth_data())
+    # print(finder.get_auth_data())
+    finder.get_qrcode()
     pass
-
