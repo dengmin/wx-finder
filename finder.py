@@ -71,7 +71,7 @@ class WxFinder:
             part_info.append({'PartNumber': part, 'ETag': upload_resp['ETag']})
             part_num += 1
 
-        self.upload_complete(part_info)
+        return self.upload_complete(part_info)
 
     def split_file(self):
         """文件按照8M分片"""
