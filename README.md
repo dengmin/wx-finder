@@ -65,14 +65,21 @@
 创建视频git
 - video_url 视频url
 
-##### upload
+##### upload_video
 视频文件上传
+- file_path 视频文件路径
+
+##### upload_picture
+图片上传 
+- file_path 文件图片路径
 
 
 #### 运行代码
 ```python
+
 file_path = '/Users/dengmin/Desktop/28804_1727070825.mp4'
 finder = WxFinder()
 finder.get_qrcode() # 生成登录的二维码, 扫码登录
 finder.upload(file_path)
+
 ```
