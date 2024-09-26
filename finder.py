@@ -13,9 +13,19 @@ UPLOAD_PARAMS = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/he
 APPLY_UPLOAD_URL = 'https://finderassistancea.video.qq.com/applyuploaddfs'
 UPLOAD_FILE_URL = 'https://finderassistancec.video.qq.com/uploadpartdfs?PartNumber=%d&UploadID=%s&QuickUpload=2'
 UPLOAD_COMPLETE_URL = 'https://finderassistancea.video.qq.com/completepartuploaddfs?UploadID=%s'
+AUTH_DATA_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/auth/auth_data?_rid=%s'
 TRACE_KEY_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/get-finder-post-trace-key?_rid=%s'
 SEARCH_LOCATION_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/helper/helper_search_location?_rid=%s'
 POST_CREATE_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/post_create'
+POST_LIST_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/post_list?_rid=%s'
+POST_DRAFT_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/get_draft_list?_rid=%s'
+COLLECTION_LIST_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/collection/get_collection_list?_rid=%s'
+POST_DELETE_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/post_delete?_rid=%s'
+COMMENT_LIST_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/comment/comment_list?_rid=%s'
+UPDATE_COMMENT_AUTH = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/post/post_update_comment_auth?_rid=%s'
+CREATE_COMMENT = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/comment/create_comment?_rid=%s'
+LIKE_COMMENT_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/comment/like_comment?_rid=%s'
+DELETE_COMMENT_URL = 'https://channels.weixin.qq.com/cgi-bin/mmfinderassistant-bin/comment/del_comment?_rid=%s'
 
 
 def generate_rid():
@@ -35,6 +45,7 @@ class WxFinder:
         self.file_key = None
         self.upload_id = None
         self.file_size = 0
+        self.upload_params = None
 
         self.__get_upload_params()
 
@@ -139,6 +150,19 @@ class WxFinder:
         return response.json()['DownloadURL']
 
     def __get_upload_params(self):
+        """
+        "data": {
+            "authKey": "303e020101043730350201010201010204af34dd6c020100020100020404030201020320141d02044a124475020419efe97902046743dda802049fa9bbd40400",
+            "uin": 2939477356,
+            "appType": 251,
+            "videoFileType": 20302,
+            "pictureFileType": 20304,
+            "thumbFileType": 20350,
+            "musicType": 20305,
+            "scene": 2
+        }
+        :return:
+        """
         url = UPLOAD_PARAMS % generate_rid()
 
         headers = {
@@ -163,6 +187,263 @@ class WxFinder:
         data = response.json()['data']
         self.auth_key = data['authKey']
         self.weixin_num = data['uin']
+        self.upload_params = data
+
+    def get_auth_data(self):
+        """
+        获取当前登录的用户信息
+        :return:
+        """
+        url = AUTH_DATA_URL % generate_rid()
+        params = {
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def get_post_list(self, page=1):
+        """视频列表"""
+        url = POST_LIST_URL % generate_rid()
+        params = {
+            "pageSize": 20,
+            "currentPage": page,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/post/list',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def get_draft_list(self, page=1):
+        """草稿列表"""
+        url = POST_DRAFT_URL % generate_rid()
+        params = {
+            "pageSize": 20,
+            "currentPage": page,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/post/list?tab=draft',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def get_collection_list(self, page=1):
+        """合集列表"""
+        url = COLLECTION_LIST_URL % generate_rid()
+        params = {
+            "pageNum": page,
+            "pageSize": 20,
+            "collectionScene": 0,
+            "collectionBusinessType": 0,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/post/list?tab=collection',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def delete_post(self, export_id):
+        """删除视频"""
+        url = POST_DELETE_URL % generate_rid()
+        params = {
+            "objectId": export_id,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/post/list',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def get_comment_list(self, export_id, comment_selection=False):
+        """
+        视频的评论列表
+        comment_selection=True 精选评论
+        """
+        url = COMMENT_LIST_URL % generate_rid()
+        params = {
+            "lastBuff": "",
+            "exportId": export_id,
+            "commentSelection": comment_selection,
+            "forMcn": False,
+            "timestamp": "1727315193214",
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/comment',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def update_comment_auth(self, export_id, comment_flag=0, comment_selection_flag=0):
+        """
+        修改视频评论的权限
+        comment_flag=0 开启评论  comment_flag=1 关闭评论
+        comment_selection_flag=0 将仅公开已精选的评论 comment_selection_flag=1 关闭
+        """
+        url = UPDATE_COMMENT_AUTH % generate_rid()
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/comment',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        params = {
+            "objectId": export_id,
+            "commentFlag": comment_flag,
+            "commentSelectionFlag": comment_selection_flag,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def create_comment(self, export_id, reply_comment_id=None):
+        """添加评论"""
+        url = CREATE_COMMENT % generate_rid()
+        params = {
+            "replyCommentId": "" if reply_comment_id is None else reply_comment_id,
+            "content": "test",
+            "clientId": uuid.uuid4(),
+            "rootCommentId": "",
+            "comment": {},
+            "exportId": export_id,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "scene": 7,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/comment',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def like_comment(self, export_id, comment_id, scene=1):
+        """
+        评论点赞
+        scene=1 点赞 scene=2取消点赞
+        """
+        url = LIKE_COMMENT_URL % generate_rid()
+        params = {
+            "commentId": comment_id,
+            "scene": scene,
+            "exportId": export_id,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None,
+            "pluginSessionId": None,
+            "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/comment',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
+
+    def delete_comment(self, export_id, comment_id):
+        """删除评论"""
+        url = DELETE_COMMENT_URL % generate_rid()
+        params = {
+            "exportId": export_id,
+            "commentId": comment_id,
+            "timestamp": int(time.time() * 1000),
+            "_log_finder_uin": "",
+            "_log_finder_id": self.finder_id,
+            "rawKeyBuff": None, "pluginSessionId": None, "scene": 7, "reqScene": 7
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'X-WECHAT-UIN': str(self.weixin_num),
+            'Referer': 'https://channels.weixin.qq.com/platform/comment',
+            'User-Agent': USER_AGENT,
+            'Cookie': self.cookie
+        }
+        response = requests.post(url, headers=headers, json=params)
+        return response.json()['data']
 
     def get_trace_key(self):
         url = TRACE_KEY_URL % generate_rid()
@@ -313,11 +594,13 @@ class WxFinder:
 if __name__ == '__main__':
     file_path = '/Users/dengmin/Desktop/28804_1727070825.mp4'
     finder_id = 'v2_060000231003b20faec8c4e18d1dc5dcce0cea34b0777a2ed442219fded549577d31f6cbbb64@finder'
-    cookie = 'cookie....'
+    cookie = 'cookies....'
     finder = WxFinder(cookie, finder_id)
-    finder.upload(file_path)
+    #finder.upload(file_path)
     #finder.get_trace_key()
     #location = finder.search_location()
     #print(location)
+    # print(finder.get_draft_list())
+    print(finder.get_auth_data())
     pass
 
