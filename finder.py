@@ -369,12 +369,12 @@ class WxFinder:
         response = requests.post(url, headers=headers, json=params)
         return response.json()['data']
 
-    def create_comment(self, export_id, reply_comment_id=None):
+    def create_comment(self, export_id, content, reply_comment_id=None):
         """添加评论"""
         url = CREATE_COMMENT % generate_rid()
         params = {
             "replyCommentId": "" if reply_comment_id is None else reply_comment_id,
-            "content": "test",
+            "content": content,
             "clientId": uuid.uuid4(),
             "rootCommentId": "",
             "comment": {},

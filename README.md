@@ -43,6 +43,7 @@
 ##### create_comment
 创建评论
 - export_id 视频ID
+- content 评论内容
 - reply_comment_id 回复的评论ID
 
 ##### like_comment
